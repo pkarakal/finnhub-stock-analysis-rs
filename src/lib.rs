@@ -1,3 +1,4 @@
+pub mod cli;
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, NaiveDateTime, Utc, serde::{ts_milliseconds}};
 
@@ -54,7 +55,7 @@ impl TickerInfo {
         }
     }
 
-    fn new(symbol: &str, price: f64, volume: f64, date_time: &DateTime<Utc>, conditions: &Vec<String>) -> Self {
+    fn new(symbol: &str, price: f64, volume: f64, date_time: &DateTime<Utc>, conditions: &[String]) -> Self {
         TickerInfo {
             symbol: symbol.parse().unwrap(),
             price,
