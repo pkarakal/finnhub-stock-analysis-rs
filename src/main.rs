@@ -1,11 +1,8 @@
-use std::borrow::Borrow;
-use std::io::Split;
-use futures_util::{future::{FutureExt}, pin_mut, SinkExt, StreamExt, select};
+use futures_util::{SinkExt, StreamExt};
 use futures_util::stream::SplitSink;
-use tokio::io::{AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tokio::io::{AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio_tungstenite::{connect_async, MaybeTlsStream, tungstenite::protocol::Message, WebSocketStream};
-use url::form_urlencoded::byte_serialize;
 use finnhub_ws::{cli::cmd::CLIOptions, Response, SubscribeInfo};
 use clap::Parser;
 
@@ -21,7 +18,7 @@ async fn main() -> Result<()> {
 
     let (ws_stream, _) = connect_async(url).await.expect("Failed to connect");
 
-    let (mut write, read) = ws_stream.split();
+    let (write, read) = ws_stream.split();
 
     subscribe_to_stocks(write, &opts.stocks).await;
 
@@ -38,13 +35,13 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn subscribe_to_stocks(mut tx: SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>, stocks: &Vec<String>) {
+async fn subscribe_to_stocks(mut tx: SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>, stocks: &[String]) {
     let items = stocks.iter().map(|item| {
         SubscribeInfo::new(item)
     }).map(|x1| {
         match serde_json::to_string(&x1) {
             Ok(res) => res,
-            Err(e) => "".parse().unwrap()
+            Err(_e) => "".parse().unwrap()
         }
     }).collect::<Vec<String>>();
     for item in items {
