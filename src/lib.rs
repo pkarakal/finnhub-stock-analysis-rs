@@ -1,3 +1,4 @@
+pub mod cli;
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, NaiveDateTime, Utc, serde::{ts_milliseconds}};
 
