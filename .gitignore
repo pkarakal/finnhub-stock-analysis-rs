@@ -20,3 +20,4 @@
 !.vscode/extensions.json
 .history/*
 .editorconfig
+data/
