@@ -1,3 +1,5 @@
+use std::fmt::format;
+use std::path::{Path, PathBuf};
 use futures_util::{SinkExt, StreamExt};
 use futures_util::stream::SplitSink;
 use tokio::io::{AsyncWriteExt};
@@ -26,9 +28,7 @@ async fn main() -> Result<()> {
     let read_future = read.for_each(|message| async {
         let x = &*message.unwrap().into_data();
         let data = serde_json::from_slice::<Response>(x).unwrap();
-        println!("{:?}", data);
-        let encoded: Vec<u8> = bincode::serialize(&data).unwrap();
-        tokio::io::stdout().write_all(&*encoded).await.unwrap();
+        parse_message(&data)
     });
 
     read_future.await;
@@ -47,4 +47,10 @@ async fn subscribe_to_stocks(mut tx: SplitSink<WebSocketStream<MaybeTlsStream<Tc
     for item in items {
         tx.send(Message::Text(item)).await.unwrap();
     }
+}
+
+fn parse_message(resp: &Response) {
+    resp.transaction_data.iter().for_each(|x|  {
+        x.write_to_disk(&PathBuf::from(format!("data/{}.csv", x.symbol)));
+    });
 }
