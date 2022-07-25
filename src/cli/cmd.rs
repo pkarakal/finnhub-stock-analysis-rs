@@ -1,7 +1,7 @@
 use clap::Parser;
 
 #[derive(Parser, Debug)]
-#[clap(name = "finnhub_ws", version = "0.1.0", author = env ! ("CARGO_PKG_AUTHORS"))]
+#[clap(name = env!("CARGO_PKG_NAME"), version = env!("CARGO_PKG_VERSION"), author = env!("CARGO_PKG_AUTHORS"))]
 pub struct CLIOptions {
     #[clap(short, long)]
     pub verbose: bool,
