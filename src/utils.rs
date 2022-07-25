@@ -41,11 +41,15 @@ pub fn find_items(file: &mut File, time: i64, l: i64) -> Vec<RollingData> {
     let mut data:String = String::new();
     file.seek(SeekFrom::Start(0)).unwrap();
     file.read_to_string(&mut data).unwrap();
+    let mut records: Vec<RollingData> = Vec::with_capacity(100);
     let mut reader = csv::ReaderBuilder::new().from_reader(data.as_bytes());
-    reader.deserialize()
-        .collect::<Result<Vec<RollingData>, csv::Error>>().unwrap().into_iter().filter(|x| {
-        x.write_timestamp.ge(&datetime_min) && x.write_timestamp.lt(&datetime_max)
-    }).collect::<Vec<RollingData>>()
+    for record in reader.deserialize(){
+        let record: RollingData = record.unwrap();
+        if record.write_timestamp.ge(&datetime_min) && record.write_timestamp.lt(&datetime_max){
+            records.push(record);
+        }
+    }
+    records
 }
 
 
