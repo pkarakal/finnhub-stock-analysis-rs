@@ -114,6 +114,27 @@ fn wait_for_candlestick(handle: &StockHandle) {
     }
 }
 
+fn wait_for_mean(handle: &StockHandle) {
+    let (_, rx) = handle.stock_channel.clone();
+    loop {
+        let timestamp = rx.recv().unwrap();
+        let mut rf = handle.rolling_file.lock().unwrap();
+        let items = find_items(&mut rf, timestamp, 15);
+        drop(rf);
+        let mf = handle.mean_file.lock().unwrap();
+        match calculate_mean_data(&items) {
+            Some(md) => {
+                md.write_to_file(&mf);
+                drop(md);
+                drop(items);
+                drop(mf);
+            }
+            None => {
+                drop(items);
+                drop(mf);
+            }
+        };
+    }
 }
 
 async fn subscribe_to_stocks(mut tx: SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>, stocks: &[String]) {
