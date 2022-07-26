@@ -225,4 +225,89 @@ pub fn initialize_mapper(stocks: &[String])-> Arc<Vec<StockHandle>>{
 }
 
 
+#[cfg(test)]
+mod stock_handle_test {
+    use std::fs::remove_file;
+    use std::ops::Deref;
+    use std::sync::Arc;
+    use crate::stock_handle::{create_candlestick_file, create_mean_file, create_rolling_file, initialize_mapper, StockHandle};
+    use crate::utils::sanitize_string;
+
+    #[test]
+    fn given_a_stock_symbol_it_should_create_rolling_file() {
+        let stock_name = "rolling";
+        let f = create_rolling_file(stock_name).unwrap();
+        drop(f);
+        let file_exists = std::fs::metadata("data/rolling/rolling.csv").unwrap();
+        assert_eq!(file_exists.is_file(), true);
+        remove_file("data/rolling/rolling.csv").unwrap();
+    }
+
+    #[test]
+    fn given_a_stock_symbol_it_should_create_candlestick_file() {
+        let stock_name = "candlestick";
+        let f = create_candlestick_file(stock_name).unwrap();
+        drop(f);
+        let file_exists = std::fs::metadata("data/candlestick/candlestick.csv").unwrap();
+        assert_eq!(file_exists.is_file(), true);
+        remove_file("data/candlestick/candlestick.csv").unwrap();
+    }
+
+    #[test]
+    fn given_a_stock_symbol_it_should_create_mean_file() {
+        let stock_name = "mean";
+        let f = create_mean_file(stock_name).unwrap();
+        drop(f);
+        let file_exists = std::fs::metadata("data/mean/mean.csv").unwrap();
+        assert_eq!(file_exists.is_file(), true);
+        remove_file("data/mean/mean.csv").unwrap();
+    }
+
+    #[test]
+    fn given_an_array_of_stocks_it_should_create_the_mapper_files() {
+        let stocks = vec!["abc".to_string(), "def".to_string(), "ghi".to_string()];
+        let mapper = initialize_mapper(&stocks);
+        assert_eq!(mapper.len(), 3);
+        assert_eq!(std::fs::metadata("data/rolling").unwrap().is_dir(), true);
+        for stock in stocks {
+            assert_eq!(std::fs::metadata(format!("data/rolling/{}.csv", sanitize_string(&stock) )).unwrap().is_file(), true);
+            assert_eq!(std::fs::metadata(format!("data/candlestick/{}.csv",sanitize_string(&stock) )).unwrap().is_file(), true);
+            assert_eq!(std::fs::metadata(format!("data/mean/{}.csv", sanitize_string(&stock) )).unwrap().is_file(), true);
+            remove_file(format!("data/rolling/{}.csv", sanitize_string(&stock))).unwrap();
+            remove_file(format!("data/candlestick/{}.csv", sanitize_string(&stock))).unwrap();
+            remove_file(format!("data/mean/{}.csv", sanitize_string(&stock))).unwrap();
+        }
+    }
+
+    #[test]
+    fn given_a_stock_symbol_it_should_create_the_mapper_channels(){
+        let stocks = vec!["jkl".to_string()];
+        let mapper = initialize_mapper(&stocks);
+        let handles: &Vec<StockHandle> = mapper.deref();
+        for handle in handles {
+            let (tx,rx) = &handle.stock_channel;
+            tx.send(1234).unwrap();
+            assert_eq!(rx.recv().unwrap(), 1234);
+            remove_file(format!("data/rolling/{}.csv", sanitize_string(&handle.stock_symbol))).unwrap();
+            remove_file(format!("data/candlestick/{}.csv", sanitize_string(&handle.stock_symbol))).unwrap();
+            remove_file(format!("data/mean/{}.csv", sanitize_string(&handle.stock_symbol))).unwrap();
+        }
+    }
+
+    #[test]
+    fn given_a_stock_symbol_it_should_create_the_mapper_mean_channels(){
+        let stocks = vec!["mno".to_string()];
+        let mapper = initialize_mapper(&stocks);
+        let handles: &Vec<StockHandle> = mapper.deref();
+        for handle in handles {
+            let (tx,rx) = &handle.rolling_mean_channel;
+            tx.send(1234).unwrap();
+            assert_eq!(rx.recv().unwrap(), 1234);
+            remove_file(format!("data/rolling/{}.csv", sanitize_string(&handle.stock_symbol))).unwrap();
+            remove_file(format!("data/candlestick/{}.csv", sanitize_string(&handle.stock_symbol))).unwrap();
+            remove_file(format!("data/mean/{}.csv", sanitize_string(&handle.stock_symbol))).unwrap();
+        }
+    }
+
+}
 
