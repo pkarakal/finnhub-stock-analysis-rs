@@ -23,7 +23,7 @@ $ sudo dnf install rust openssl-devel # or use rustup https://www.rust-lang.org/
 #### Ubuntu
 ```shell
 $ sudo apt-get update && sudo apt-get upgrade # updates installed packages and repositories metadata
-$ sudo apt-get install rust libopenssl-dev # or use rustup https://www.rust-lang.org/tools/install 
+$ sudo apt-get install rust libssl-dev # or use rustup https://www.rust-lang.org/tools/install 
 ```
 
 
