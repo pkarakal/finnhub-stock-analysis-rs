@@ -231,10 +231,11 @@ mod stock_handle_test {
     use std::ops::Deref;
     use std::sync::Arc;
     use crate::stock_handle::{create_candlestick_file, create_mean_file, create_rolling_file, initialize_mapper, StockHandle};
-    use crate::utils::sanitize_string;
+    use crate::utils::{create_dirs, sanitize_string};
 
     #[test]
     fn given_a_stock_symbol_it_should_create_rolling_file() {
+        let _ = create_dirs("data/rolling");
         let stock_name = "rolling";
         let f = create_rolling_file(stock_name).unwrap();
         drop(f);
@@ -245,6 +246,7 @@ mod stock_handle_test {
 
     #[test]
     fn given_a_stock_symbol_it_should_create_candlestick_file() {
+        let _ = create_dirs("data/candlestick");
         let stock_name = "candlestick";
         let f = create_candlestick_file(stock_name).unwrap();
         drop(f);
@@ -255,6 +257,7 @@ mod stock_handle_test {
 
     #[test]
     fn given_a_stock_symbol_it_should_create_mean_file() {
+        let _ = create_dirs("data/mean");
         let stock_name = "mean";
         let f = create_mean_file(stock_name).unwrap();
         drop(f);
@@ -265,6 +268,9 @@ mod stock_handle_test {
 
     #[test]
     fn given_an_array_of_stocks_it_should_create_the_mapper_files() {
+        for dir in ["data/rolling", "data/mean", "data/candlestick"] {
+            let _ = create_dirs(dir);
+        }
         let stocks = vec!["abc".to_string(), "def".to_string(), "ghi".to_string()];
         let mapper = initialize_mapper(&stocks);
         assert_eq!(mapper.len(), 3);
@@ -281,6 +287,9 @@ mod stock_handle_test {
 
     #[test]
     fn given_a_stock_symbol_it_should_create_the_mapper_channels(){
+        for dir in ["data/rolling", "data/mean", "data/candlestick"] {
+            let _ = create_dirs(dir);
+        }
         let stocks = vec!["jkl".to_string()];
         let mapper = initialize_mapper(&stocks);
         let handles: &Vec<StockHandle> = mapper.deref();
@@ -296,6 +305,9 @@ mod stock_handle_test {
 
     #[test]
     fn given_a_stock_symbol_it_should_create_the_mapper_mean_channels(){
+        for dir in ["data/rolling", "data/mean", "data/candlestick"] {
+            let _ = create_dirs(dir);
+        }
         let stocks = vec!["mno".to_string()];
         let mapper = initialize_mapper(&stocks);
         let handles: &Vec<StockHandle> = mapper.deref();
