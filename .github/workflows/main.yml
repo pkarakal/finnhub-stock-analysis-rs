@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Install dependencies
-        run: sudo apt install -y libopenssl-dev
+        run: sudo apt install -y libssl-dev
       - name: Build Application
         run: cargo build --release
       - name: Test Application
