@@ -14,7 +14,6 @@
 //! ```
 use std::fs::{File, OpenOptions};
 use std::io;
-use std::io::{Seek, SeekFrom};
 use std::sync::{Arc, Mutex, Once};
 use chrono::{Utc};
 use crossbeam_channel::{Receiver, Sender, unbounded};

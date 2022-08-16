@@ -4,11 +4,17 @@ use chrono::{DurationRound};
 use futures_util::{SinkExt, StreamExt, stream::{SplitSink, SplitStream}};
 use tokio::{net::TcpStream, time::{self, Duration}};
 use tokio_tungstenite::{connect_async, MaybeTlsStream, tungstenite::protocol::Message, WebSocketStream};
-use finnhub_ws::{cli::cmd::CLIOptions, Response, SubscribeInfo, WsMessage, candlestick::calculate_candlestick, stock_handle::{initialize_mapper, StockHandle}, mean::calculate_mean_data, utils::{create_dirs, find_items}};
+use finnhub_ws::{
+    cli::cmd::CLIOptions, Response, SubscribeInfo, WsMessage,
+    candlestick::calculate_candlestick,
+    stock_handle::{initialize_mapper, StockHandle},
+    mean::calculate_mean_data,
+    utils::{create_dirs, find_items},
+    RollingData
+};
 use clap::Parser;
 use rayon::prelude::*;
 use crossbeam_channel::{Sender};
-use finnhub_ws::candlestick::Candlestick;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
@@ -93,47 +99,46 @@ async fn read_from_stream(read: SplitStream<WebSocketStream<MaybeTlsStream<TcpSt
 
 fn wait_for_candlestick(handle: &StockHandle) {
     let (_, rx) = handle.rolling_mean_channel.clone();
+    let mut items: Vec<RollingData> = Vec::with_capacity(1000);
     loop {
         let timestamp = rx.recv().unwrap();
         let mut rf = handle.rolling_file.lock().unwrap();
-        let items = find_items(&mut rf, timestamp, 1);
+        find_items(&mut rf, timestamp, 1, &mut items);
         drop(rf);
         let cf = handle.candlestick_file.lock().unwrap();
         match calculate_candlestick(&items) {
             Some(cs) => {
                 cs.write_to_file(&cf);
-                drop(cs);
-                drop(items);
-                drop(cf);
             }
             None => {
-                drop(items);
-                drop(cf);
             }
         };
+        drop(cf);
+        items.clear();
+        items.shrink_to(1000);
     }
 }
 
 fn wait_for_mean(handle: &StockHandle) {
     let (_, rx) = handle.stock_channel.clone();
+    let mut items: Vec<RollingData> = Vec::with_capacity(1000);
     loop {
         let timestamp = rx.recv().unwrap();
         let mut rf = handle.rolling_file.lock().unwrap();
-        let items = find_items(&mut rf, timestamp, 15);
+        find_items(&mut rf, timestamp, 15, &mut items);
         drop(rf);
         let mf = handle.mean_file.lock().unwrap();
         match calculate_mean_data(&items) {
             Some(md) => {
                 md.write_to_file(&mf);
-                drop(md);
-                drop(items);
-                drop(mf);
             }
             None => {
-                drop(items);
-                drop(mf);
             }
         };
+        drop(mf);
+        items.clear();
+        items.shrink_to(1000);
+
     }
 }
 

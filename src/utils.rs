@@ -1,7 +1,6 @@
 use std::fs::{create_dir_all, File};
 use std::io;
 use std::io::{BufReader, Read, Seek, SeekFrom};
-use serde::{Deserialize};
 use chrono::{DateTime, NaiveDateTime, Utc};
 use regex::Regex;
 use crate::{RollingData};
@@ -112,8 +111,9 @@ pub fn is_file_empty(f: File) -> bool {
 /// BINANCE:BTCUSDT,23061.05,1658441258376,1658441270794
 /// BINANCE:BTCUSDT,23060.16,1658441258197,1658441270794
 /// BINANCE:BTCUSDT,23061.04,1658441258362,1658441270795").unwrap();
-/// f.sync_all().unwrap();
-/// let items = find_items(&mut f, 1658441258, 1);
+/// f.sync_all().unwrap();///
+/// let mut items: Vec<finnhub_ws::RollingData> = Vec::with_capacity(10);
+/// find_items(&mut f, 1658441258, 1, &mut items);
 /// assert_eq!(items, vec![///
 ///     finnhub_ws::RollingData { symbol: "BINANCE:BTCUSDT".parse().unwrap(), price: 23061.05, timestamp: Utc.ymd(2022, 7, 21).and_hms_milli(22, 7, 38, 376), write_timestamp: Utc.ymd(2022, 7, 21).and_hms_milli(22, 7, 50, 794) },
 ///     finnhub_ws::RollingData { symbol: "BINANCE:BTCUSDT".parse().unwrap(), price: 23060.16, timestamp: Utc.ymd(2022, 7, 21).and_hms_milli(22, 7, 38, 197), write_timestamp: Utc.ymd(2022, 7, 21).and_hms_milli(22, 7, 50, 794) },
@@ -121,21 +121,18 @@ pub fn is_file_empty(f: File) -> bool {
 /// ]);
 /// std::fs::remove_file("tmp/find_items.csv").unwrap();
 /// ```
-pub fn find_items(file: &mut File, time: i64, l: i64) -> Vec<RollingData> {
+pub fn find_items(file: &mut File, time: i64, l: i64, records: &mut Vec<RollingData>) {
     let datetime_min: DateTime<Utc> = DateTime::from_utc(NaiveDateTime::from_timestamp(time, 0), Utc);
     let datetime_max: DateTime<Utc> = datetime_min + chrono::Duration::minutes(l);
-    let mut data:String = String::new();
     file.seek(SeekFrom::Start(0)).unwrap();
-    file.read_to_string(&mut data).unwrap();
-    let mut records: Vec<RollingData> = Vec::with_capacity(100);
-    let mut reader = csv::ReaderBuilder::new().from_reader(data.as_bytes());
+    let buf = BufReader::new(file);
+    let mut reader = csv::ReaderBuilder::new().from_reader(buf);
     for record in reader.deserialize(){
         let record: RollingData = record.unwrap();
         if record.write_timestamp.ge(&datetime_min) && record.write_timestamp.lt(&datetime_max){
             records.push(record);
         }
     }
-    records
 }
 
 
@@ -240,7 +237,8 @@ BINANCE:BTCUSDT,23061.79,1658441258466,1658441271009").unwrap();
         create_dirs("test");
         let mut file = create_file(file_name);
         write_mock_data_to_file(&mut file);
-        let got = find_items(&mut file, 1658441258, 1);
+        let mut got: Vec<RollingData> = Vec::with_capacity(10);
+        find_items(&mut file, 1658441258, 1, &mut got);
         let expected = vec![
             RollingData { symbol: "BINANCE:BTCUSDT".parse().unwrap(), price: 23061.05, timestamp: Utc.ymd(2022, 7, 21).and_hms_milli(22, 7, 38, 376), write_timestamp: Utc.ymd(2022, 7, 21).and_hms_milli(22, 7, 50, 794) },
             RollingData { symbol: "BINANCE:BTCUSDT".parse().unwrap(), price: 23060.16, timestamp: Utc.ymd(2022, 7, 21).and_hms_milli(22, 7, 38, 197), write_timestamp: Utc.ymd(2022, 7, 21).and_hms_milli(22, 7, 50, 794) },
@@ -262,7 +260,8 @@ BINANCE:BTCUSDT,23061.79,1658441258466,1658441271009").unwrap();
         let file_name = "test/test_empty.csv";
         create_dirs("test");
         let mut file = create_file(file_name);
-        let got = find_items(&mut file, 1658441258, 1);
+        let mut got: Vec<RollingData> = Vec::with_capacity(10);
+        find_items(&mut file, 1658441258, 1, &mut got);
         let expected = vec![];
         assert_eq!(got, expected);
         remove_file(file_name).unwrap();
@@ -276,7 +275,8 @@ BINANCE:BTCUSDT,23061.79,1658441258466,1658441271009").unwrap();
         create_dirs("test");
         let mut file = create_file(file_name);
         write_mock_data_to_file(&mut file);
-        let got = find_items(&mut file, 1658860842, 1);
+        let mut got: Vec<RollingData> = Vec::with_capacity(10);
+        find_items(&mut file, 1658860842, 1, &mut got);
         let expected = vec![];
         assert_eq!(got, expected);
         remove_file(file_name).unwrap();
