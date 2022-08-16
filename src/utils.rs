@@ -122,8 +122,8 @@ pub fn is_file_empty(f: File) -> bool {
 /// std::fs::remove_file("tmp/find_items.csv").unwrap();
 /// ```
 pub fn find_items(file: &mut File, time: i64, l: i64, records: &mut Vec<RollingData>) {
-    let datetime_min: DateTime<Utc> = DateTime::from_utc(NaiveDateTime::from_timestamp(time, 0), Utc);
-    let datetime_max: DateTime<Utc> = datetime_min + chrono::Duration::minutes(l);
+    let datetime_max: DateTime<Utc> = DateTime::from_utc(NaiveDateTime::from_timestamp(time, 0), Utc);
+    let datetime_min: DateTime<Utc> = datetime_max - chrono::Duration::minutes(l);
     file.seek(SeekFrom::Start(0)).unwrap();
     let buf = BufReader::new(file);
     let mut reader = csv::ReaderBuilder::new().from_reader(buf);
