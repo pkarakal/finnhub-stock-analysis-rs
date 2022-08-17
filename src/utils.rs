@@ -113,7 +113,7 @@ pub fn is_file_empty(f: File) -> bool {
 /// BINANCE:BTCUSDT,23061.04,1658441258362,1658441270795").unwrap();
 /// f.sync_all().unwrap();///
 /// let mut items: Vec<finnhub_ws::RollingData> = Vec::with_capacity(10);
-/// find_items(&mut f, 1658441258, 1, &mut items);
+/// find_items(&mut f, 1658441330, 1, &mut items);
 /// assert_eq!(items, vec![///
 ///     finnhub_ws::RollingData { symbol: "BINANCE:BTCUSDT".parse().unwrap(), price: 23061.05, timestamp: Utc.ymd(2022, 7, 21).and_hms_milli(22, 7, 38, 376), write_timestamp: Utc.ymd(2022, 7, 21).and_hms_milli(22, 7, 50, 794) },
 ///     finnhub_ws::RollingData { symbol: "BINANCE:BTCUSDT".parse().unwrap(), price: 23060.16, timestamp: Utc.ymd(2022, 7, 21).and_hms_milli(22, 7, 38, 197), write_timestamp: Utc.ymd(2022, 7, 21).and_hms_milli(22, 7, 50, 794) },
@@ -233,12 +233,12 @@ BINANCE:BTCUSDT,23061.79,1658441258466,1658441271009").unwrap();
     #[test]
     #[serial]
     fn given_file_with_data_expect_vec_with_matching_records() {
-        let file_name = "test/test.csv";
+        let file_name = "test/test1.csv";
         create_dirs("test");
         let mut file = create_file(file_name);
         write_mock_data_to_file(&mut file);
         let mut got: Vec<RollingData> = Vec::with_capacity(10);
-        find_items(&mut file, 1658441258, 1, &mut got);
+        find_items(&mut file, 1658441330, 1, &mut got);
         let expected = vec![
             RollingData { symbol: "BINANCE:BTCUSDT".parse().unwrap(), price: 23061.05, timestamp: Utc.ymd(2022, 7, 21).and_hms_milli(22, 7, 38, 376), write_timestamp: Utc.ymd(2022, 7, 21).and_hms_milli(22, 7, 50, 794) },
             RollingData { symbol: "BINANCE:BTCUSDT".parse().unwrap(), price: 23060.16, timestamp: Utc.ymd(2022, 7, 21).and_hms_milli(22, 7, 38, 197), write_timestamp: Utc.ymd(2022, 7, 21).and_hms_milli(22, 7, 50, 794) },
