@@ -1,0 +1,19 @@
+---
+on:
+  push:
+    branches:
+      - "*" # This will run only in all tags
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install dependencies
+        run: sudo apt install -y libssl-dev
+      - name: Build Application
+        run: cargo build --release
+      - name: Test Application
+        run: cargo test
+

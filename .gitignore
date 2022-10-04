@@ -21,3 +21,4 @@
 .history/*
 .editorconfig
 data/
+*.zst
