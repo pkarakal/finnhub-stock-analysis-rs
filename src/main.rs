@@ -71,6 +71,14 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
+/// `tick` is being used to send a signal to threads waiting to calculate
+/// the candlestick and 15-minute mean data
+///
+/// # Arguments
+/// candlestick_txs : a reference to a vector of Sender which represents the threads calculating the
+///      candlestick
+/// mean_txs: a reference to a vector of Sender which represents the threads calculating the 15-minute
+///      mean data
 async fn tick(candlestick_txs: &[Sender<i64>], mean_txs: &[Sender<i64>]) {
     let mut interval = time::interval(Duration::from_secs(60));
     interval.tick().await;
@@ -84,6 +92,7 @@ async fn tick(candlestick_txs: &[Sender<i64>], mean_txs: &[Sender<i64>]) {
     }
 }
 
+/// `read_from_stream` reads data from the websocket and converts a byte array to `WsMessage` enum instance
 async fn read_from_stream(read: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>, mapper: &Vec<StockHandle>) {
     let reader = read.for_each(|message| async {
         let x = &*message.unwrap().into_data();
@@ -97,13 +106,20 @@ async fn read_from_stream(read: SplitStream<WebSocketStream<MaybeTlsStream<TcpSt
     reader.await;
 }
 
+/// `wait_for_candlestick` blocks until data is retrieved from the channel.
+/// Then, it reads rolling data file and filters entries of the last minute,
+/// calculates the candlestick and writes it back to a file used for
+/// candlestick information
 fn wait_for_candlestick(handle: &StockHandle) {
     let (_, rx) = handle.rolling_mean_channel.clone();
     let mut items: Vec<RollingData> = Vec::with_capacity(1000);
     loop {
+        // this blocks the thread
         let timestamp = rx.recv().unwrap();
         let mut rf = handle.rolling_file.lock().unwrap();
         find_items(&mut rf, timestamp, 1, &mut items);
+        // rf would get dropped at the end of the iteration,
+        // but there is no need to keep the lock much longer than this point
         drop(rf);
         let cf = handle.candlestick_file.lock().unwrap();
         match calculate_candlestick(&items) {
@@ -113,12 +129,17 @@ fn wait_for_candlestick(handle: &StockHandle) {
             None => {
             }
         };
+        // same as for rf, just a good practice
         drop(cf);
         items.clear();
         items.shrink_to(1000);
     }
 }
 
+/// `wait_for_mean` blocks until data is retrieved from the channel.
+/// Then, it reads rolling data file and filters entries of the 15 minutes,
+/// calculates the mean data and writes it back to a file used for
+/// mean information
 fn wait_for_mean(handle: &StockHandle) {
     let (_, rx) = handle.stock_channel.clone();
     let mut items: Vec<RollingData> = Vec::with_capacity(1000);
@@ -126,6 +147,8 @@ fn wait_for_mean(handle: &StockHandle) {
         let timestamp = rx.recv().unwrap();
         let mut rf = handle.rolling_file.lock().unwrap();
         find_items(&mut rf, timestamp, 15, &mut items);
+        // rf would get dropped at the end of the iteration,
+        // but there is no need to keep the lock much longer than this point
         drop(rf);
         let mf = handle.mean_file.lock().unwrap();
         match calculate_mean_data(&items) {
@@ -135,6 +158,7 @@ fn wait_for_mean(handle: &StockHandle) {
             None => {
             }
         };
+        // same as for rf, just a good practice
         drop(mf);
         items.clear();
         items.shrink_to(1000);
@@ -142,6 +166,8 @@ fn wait_for_mean(handle: &StockHandle) {
     }
 }
 
+/// `subscribe_to_stocks`: Given a channel and an array of strings containing the stock names,
+/// it sends a websocket message to finnhub to subscribe to that stock
 async fn subscribe_to_stocks(mut tx: SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>, stocks: &[String]) {
     let items = stocks.iter().map(|item| {
         SubscribeInfo::new(item)
@@ -156,6 +182,10 @@ async fn subscribe_to_stocks(mut tx: SplitSink<WebSocketStream<MaybeTlsStream<Tc
     }
 }
 
+/// `parse_message` given a response and a reference to a `StockHandle`,
+/// for each transaction in the response, it writes them to the rolling
+/// file keeping the file lock during the write operation. On first invocation
+/// it checks to see, if the rolling file exists, otherwise it creates it.
 fn parse_message(resp: &Response, mapper: &Vec<StockHandle>) {
     resp.transaction_data.par_iter().for_each(|x| {
         match mapper.iter().find(|s| s.stock_symbol == x.symbol) {
