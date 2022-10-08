@@ -28,7 +28,7 @@ async fn main() -> Result<()> {
 
     let (ws_stream, _) = connect_async(url).await.expect("Failed to connect");
 
-    let (write, read) = ws_stream.split();
+    let (mut write, mut read) = ws_stream.split();
 
     let dirs = vec!["data/rolling", "data/candlestick", "data/mean"];
     dirs.iter().for_each(|x| {
@@ -43,10 +43,10 @@ async fn main() -> Result<()> {
     let mapper_a = Arc::clone(&mapper);
     let mapper_b = Arc::clone(&mapper);
     let mapper_c = Arc::clone(&mapper);
-    subscribe_to_stocks(write, &opts.stocks).await;
+    subscribe_to_stocks(&mut write, &opts.stocks).await;
     let futures_vec = vec![
         tokio::spawn(async move {
-            read_from_stream(read, &mapper_c).await;
+            read_from_stream(&mut read, &mut write, &mapper_c).await;
         }),
         tokio::spawn(async move {
         let candlestick_txs: Vec<Sender<i64>> = mapper_a.iter().map(|x| {
@@ -93,17 +93,27 @@ async fn tick(candlestick_txs: &[Sender<i64>], mean_txs: &[Sender<i64>]) {
 }
 
 /// `read_from_stream` reads data from the websocket and converts a byte array to `WsMessage` enum instance
-async fn read_from_stream(read: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>, mapper: &Vec<StockHandle>) {
-    let reader = read.for_each(|message| async {
-        let x = &*message.unwrap().into_data();
-        let data = serde_json::from_slice::<WsMessage>(x).unwrap();
-        match data {
-            WsMessage::Response(resp) => { parse_message(&resp, mapper) }
-            WsMessage::Ping(ping) => println!("{:?}", ping),
-            WsMessage::Error(err) => println!("{:?}", err.message)
+async fn read_from_stream(read: &mut SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>, write: &mut SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>, mapper: &Vec<StockHandle>) {
+    while let Some(message) = read.next().await {
+        match message {
+            Ok(d) => {
+                let x = &*d.into_data();
+                let data = serde_json::from_slice::<WsMessage>(x).unwrap();
+                match data {
+                    WsMessage::Response(resp) => { parse_message(&resp, mapper) }
+                    WsMessage::Ping(ping) => {
+                        println!("{:?}", ping);
+                        write.send(Message::Pong("".into())).await.unwrap();
+                        println!("Pong sent");
+                    },
+                    WsMessage::Error(err) => println!("{:?}", err.message)
+                }
+            }
+            Err(ref e) => {
+                println!("{:?}", e);
+            }
         }
-    });
-    reader.await;
+    }
 }
 
 /// `wait_for_candlestick` blocks until data is retrieved from the channel.
@@ -168,7 +178,7 @@ fn wait_for_mean(handle: &StockHandle) {
 
 /// `subscribe_to_stocks`: Given a channel and an array of strings containing the stock names,
 /// it sends a websocket message to finnhub to subscribe to that stock
-async fn subscribe_to_stocks(mut tx: SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>, stocks: &[String]) {
+async fn subscribe_to_stocks(tx: &mut SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>, stocks: &[String]) {
     let items = stocks.iter().map(|item| {
         SubscribeInfo::new(item)
     }).map(|x1| {
